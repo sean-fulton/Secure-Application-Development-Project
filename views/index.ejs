@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+</head>
+<body>
+    <header>
+        <h1>Secure Application Programming Project</h1>
+    </header>
+    <h2>Welcome to the Home page</h2>
+    <h2><%= user.username %>!</h2>
+    <h3>Your password is: <%= user.password %></h3>
+        <form action="/logout" method="POST">
+            <button type="submit">Logout</button>
+        </form>
+</body>
+</html>
