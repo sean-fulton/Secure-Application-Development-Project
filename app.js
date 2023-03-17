@@ -2,6 +2,9 @@ const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt'); // password hashing / salting library / [Secure Password Storage]
+
+const { body } = require('express-validator'); // nodejs sanitization package
 
 const app = express();
 const port = 3000;
@@ -13,6 +16,9 @@ app.use(session({
     secret: '0GnJkPGgg0doBS2SqZ19JLZXzWNBDBMH',
     resave: false,
     saveUninitialized: false,
+    cookie: {
+      secure: true, // enable secure sessions [Session Management]
+    }
 }));
 
 const db = new sqlite3.Database('database.db', (err) => {
@@ -40,7 +46,12 @@ app.get('/login', (req, res) => {
 });
 
 // post
-app.post('/login', (req,res) => {
+app.post('/login', [
+
+  body('username').trim().escape(), //sanitize username input [Cross-Site Scripting (XSS) Prevention]
+  body('password').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention]
+
+], (req,res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
@@ -79,7 +90,13 @@ app.get('/register', (req, res) => {
 });
 
 //post
-app.post('/register', (req, res) => {
+app.post('/register', [
+
+  body('username').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention]
+  body('password').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention]
+  body('confirmPassword').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention]
+  
+], (req, res) => {
     const { username, password, confirmPassword } = req.body;
     
     if (!username || !password || !confirmPassword) {
@@ -92,8 +109,15 @@ app.post('/register', (req, res) => {
       return;
     }
 
-    // parameterised inputs [SQL Injection Prevention]
-    db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, password], (err) => {
+    bcrypt.hash(password, 10, (err, hash) => {
+      if(err) {
+        console.error(err.message);
+        res.status(500).send('Internal server error');
+        return;
+      }
+      
+      // parameterised inputs [SQL Injection Prevention]
+      db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash], (err) => {
         if (err) {
           console.error(err.message);
           res.status(500).send('Internal server error');
@@ -103,6 +127,7 @@ app.post('/register', (req, res) => {
         console.log(`${username} was successfully registered`);
         res.redirect('/');
       });
+    });
 });
 
 //logout
