@@ -48,7 +48,8 @@ app.post('/login', (req,res) => {
       return;
     }
 
-    db.get('SELECT id, username, password FROM users WHERE username = ?', [username], (err, row) => {
+    // parameterised inputs [SQL Injection Prevention]
+    db.get('SELECT id, username, password FROM users WHERE username = ?', [username], (err, row) => { 
       if (err) {
         console.error(err.message);
         res.status(500).send('Internal server error')
@@ -90,7 +91,8 @@ app.post('/register', (req, res) => {
       res.status(400).send('Passwords do not match');
       return;
     }
-  
+
+    // parameterised inputs [SQL Injection Prevention]
     db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, password], (err) => {
         if (err) {
           console.error(err.message);
