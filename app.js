@@ -2,9 +2,9 @@ const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
-const bcrypt = require('bcrypt'); // password hashing / salting library / [Secure Password Storage]
+const bcrypt = require('bcrypt'); // password hashing / salting library / [Sensitive Data Exposure / A02:2021-Cryptographic Failures]
 
-const { body } = require('express-validator'); // nodejs sanitization package
+const { body } = require('express-validator'); // nodejs sanitization package [A03:2021-Injection]
 
 const app = express();
 const port = 3000;
@@ -17,13 +17,13 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true, // enable secure sessions [Session Management]
+    secure: true, // enable secure sessions [Session Management / A07:2021-Identification and Authentication Failures]
   }
 }));
 
 const db = new sqlite3.Database('database.db', (err) => {
   if (err) {
-    console.error(err.message);
+    console.error(err.message); // console errors throughout to log potontial system errors to the console [A09:2021 Security Logging and Monitoring]
   }
   console.log('Connected to the database.');
 });
@@ -48,18 +48,19 @@ app.get('/login', (req, res) => {
 // post
 app.post('/login', [
 
-  body('username').trim().escape(), //sanitize username input [Cross-Site Scripting (XSS) Prevention]
-  body('password').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention]
+  body('username').trim().escape(), //sanitize username input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
+  body('password').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
 
 ], (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    res.render('login', { error: 'All fields are required' });
+    // Frontend error message which renders a view to display an error message caused by the user [A09:2021 Security Logging and Monitoring] 
+    res.status(400).send("All fields are required!!");  
     return;
   }
 
-  // parameterised inputs [SQL Injection Prevention]
+  // parameterised inputs [SQL Injection Prevention / A03:2021 Injection]
   db.get('SELECT id, username, password FROM users WHERE username = ?', [username], (err, row) => {
     if (err) {
       console.error(err.message);
@@ -68,14 +69,14 @@ app.post('/login', [
     }
 
     if (!row) {
-      res.render('login', { error: 'Invalid username or password' });
+      res.status(500).send('Invalid password or username')
       return;
     }
 
     // compare generated hash from entered password against hash in password column in db
     bcrypt.compare(password, row.password, (err, result) => {
       if (err || !result) {
-        res.render('login', { error: 'Invalid username or password' });
+        res.status(500).send('Invalid password or username')
         return;
       }
 
@@ -96,9 +97,9 @@ app.get('/register', (req, res) => {
 //post
 app.post('/register', [
 
-  body('username').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention]
-  body('password').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention]
-  body('confirmPassword').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention]
+  body('username').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
+  body('password').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
+  body('confirmPassword').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
 
 ], (req, res) => {
   const { username, password, confirmPassword } = req.body;
@@ -121,7 +122,7 @@ app.post('/register', [
       return;
     }
 
-    // parameterised inputs [SQL Injection Prevention]
+    // parameterised inputs [SQL Injection Prevention / A03:2021 Injection]
     db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash], (err) => { // pass hash to database password column
       if (err) {
         console.error(err.message);
