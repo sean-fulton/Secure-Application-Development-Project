@@ -3,12 +3,17 @@ const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt'); // password hashing / salting library / [Sensitive Data Exposure / A02:2021-Cryptographic Failures]
+const csrf = require('csurf'); // ANTI-CSRF [A01:2021 Broken Access Control] 
+const cookieParser = require('cookie-parser');
+
+const csrfProtection = csrf({ cookie: true });
 
 const { body } = require('express-validator'); // nodejs sanitization package [A03:2021-Injection]
 
 const app = express();
 const port = 3000;
 
+app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 
@@ -16,14 +21,11 @@ app.use(session({
   secret: '0GnJkPGgg0doBS2SqZ19JLZXzWNBDBMH',
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    secure: true, // enable secure sessions [Session Management / A07:2021-Identification and Authentication Failures]
-  }
 }));
 
 const db = new sqlite3.Database('database.db', (err) => {
   if (err) {
-    console.error(err.message); // console errors throughout to log potontial system errors to the console [A09:2021 Security Logging and Monitoring]
+    console.error(err.message);
   }
   console.log('Connected to the database.');
 });
@@ -40,13 +42,13 @@ app.get('/', (req, res) => {
 
 // login
 
-//get
-app.get('/login', (req, res) => {
-  res.render('login');
+//ge
+app.get('/login', csrfProtection, (req, res) => {       // [A01:2021 Broken Access]
+  res.render('login', { csrfToken: req.csrfToken() });
 });
 
 // post
-app.post('/login', [
+app.post('/login', csrfProtection, [ // [A01:2021 Broken Access Control]
 
   body('username').trim().escape(), //sanitize username input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
   body('password').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
@@ -55,8 +57,8 @@ app.post('/login', [
   const { username, password } = req.body;
 
   if (!username || !password) {
-    // Frontend error message which renders a view to display an error message caused by the user [A09:2021 Security Logging and Monitoring] 
-    res.status(400).send("All fields are required!!");  
+
+    res.status(400).send("All fields are required!!");
     return;
   }
 
@@ -70,6 +72,15 @@ app.post('/login', [
 
     if (!row) {
       res.status(500).send('Invalid password or username')
+
+      // log failed login [A09:2021 Security Logging and Monitoring]
+      db.run('INSERT INTO failed_login_logs (username) VALUES (?)', [username], (err) => {
+        if (err) {
+          console.error(err.message);
+          res.status(500).send('Internal server error');
+        }
+      });
+      console.log('failed login attempt detected, logged in database!');
       return;
     }
 
@@ -77,25 +88,34 @@ app.post('/login', [
     bcrypt.compare(password, row.password, (err, result) => {
       if (err || !result) {
         res.status(500).send('Invalid password or username')
+
+        // log failed login [A09:2021 Security Logging and Monitoring]
+        db.run('INSERT INTO failed_login_logs (username) VALUES (?)', [username], (err) => {
+          if (err) {
+            console.error(err.message);
+            res.status(500).send('Internal server error');
+          }
+        });
+        console.log('failed login attempt detected, logged in database!');
         return;
       }
 
       req.session.userId = row.id;
       console.log(`${username} successfully logged in`);
-    
-      res.render('index', { user: row });
+
+      res.render('index', { user: row, csrfToken: req.csrfToken() });
     });
   });
 });
 
 //register
 //get
-app.get('/register', (req, res) => {
-  res.render('register');
+app.get('/register', csrfProtection, (req, res) => { // [A01:2021 Broken Access Control]
+  res.render('register', { csrfToken: req.csrfToken() });
 });
 
 //post
-app.post('/register', [
+app.post('/register', csrfProtection, [ // [A01:2021 Broken Access Control]
 
   body('username').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
   body('password').trim().escape(), // sanitize password input [Cross-Site Scripting (XSS) Prevention / A03:2021 Injection]
@@ -138,13 +158,13 @@ app.post('/register', [
 
 //logout
 
-app.post('/logout', (req, res) => {
+app.post('/logout', csrfProtection, (req, res) => { // [A01:2021 Broken Access Control]
 
   req.session.destroy((err) => {
     if (err) {
       console.error(err);
     }
-    res.redirect('login');
+    res.redirect('/login');
   });
 });
 
