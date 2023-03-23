@@ -10,6 +10,11 @@
 	<h2>Login</h2>
 	<form action="/login" method="POST">
 		<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+		<% if (errorMessage) { %>
+			<ul><li><%= errorMessage %></li></ul>
+		<%}%>
+		<br/>
 		<label for="username">Username:</label>
 		<input type="text" id="username" name="username"><br><br>
 		<label for="password">Password:</label>

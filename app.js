@@ -44,7 +44,8 @@ app.get('/', (req, res) => {
 
 //ge
 app.get('/login', csrfProtection, (req, res) => {       // [A01:2021 Broken Access]
-  res.render('login', { csrfToken: req.csrfToken() });
+  const errorMessage = null;
+  res.render('login', { csrfToken: req.csrfToken(), errorMessage });
 });
 
 // post
@@ -55,10 +56,11 @@ app.post('/login', csrfProtection, [ // [A01:2021 Broken Access Control]
 
 ], (req, res) => {
   const { username, password } = req.body;
+  var errorMessage = null;
 
   if (!username || !password) {
 
-    res.status(400).send("All fields are required!!");
+    res.status(400).render('login', { csrfToken: req.csrfToken(), errorMessage: 'All fields are required!!' });
     return;
   }
 
@@ -66,18 +68,18 @@ app.post('/login', csrfProtection, [ // [A01:2021 Broken Access Control]
   db.get('SELECT id, username, password FROM users WHERE username = ?', [username], (err, row) => {
     if (err) {
       console.error(err.message);
-      res.status(500).send('Internal server error')
+      res.status(500).render('login', { csrfToken: req.csrfToken(), errorMessage: 'Internal Server Error' });
       return;
     }
 
     if (!row) {
-      res.status(500).send('Invalid password or username')
+      res.render('login', { csrfToken: req.csrfToken(), errorMessage: 'Internal Server Error' });
 
       // log failed login [A09:2021 Security Logging and Monitoring]
       db.run('INSERT INTO failed_login_logs (username) VALUES (?)', [username], (err) => {
         if (err) {
           console.error(err.message);
-          res.status(500).send('Internal server error');
+          res.status(500).render('login', { csrfToken: req.csrfToken(), errorMessage: 'Internal Server Error' });
         }
       });
       console.log('failed login attempt detected, logged in database!');
@@ -87,13 +89,13 @@ app.post('/login', csrfProtection, [ // [A01:2021 Broken Access Control]
     // compare generated hash from entered password against hash in password column in db
     bcrypt.compare(password, row.password, (err, result) => {
       if (err || !result) {
-        res.status(500).send('Invalid password or username')
+        res.status(500).render('login', { csrfToken: req.csrfToken(), errorMessage: 'Invalid password or username' });
 
         // log failed login [A09:2021 Security Logging and Monitoring]
         db.run('INSERT INTO failed_login_logs (username) VALUES (?)', [username], (err) => {
           if (err) {
             console.error(err.message);
-            res.status(500).send('Internal server error');
+            res.status(500).render('login', { csrfToken: req.csrfToken(), errorMessage: 'Internal Server Error' });
           }
         });
         console.log('failed login attempt detected, logged in database!');
@@ -103,7 +105,7 @@ app.post('/login', csrfProtection, [ // [A01:2021 Broken Access Control]
       req.session.userId = row.id;
       console.log(`${username} successfully logged in`);
 
-      res.render('index', { user: row, csrfToken: req.csrfToken() });
+      res.render('index', { user: row, csrfToken: req.csrfToken()} );
     });
   });
 });
@@ -111,7 +113,8 @@ app.post('/login', csrfProtection, [ // [A01:2021 Broken Access Control]
 //register
 //get
 app.get('/register', csrfProtection, (req, res) => { // [A01:2021 Broken Access Control]
-  res.render('register', { csrfToken: req.csrfToken() });
+  const errorMessage = null;
+  res.render('register', { csrfToken: req.csrfToken(), errorMessage });
 });
 
 //post
@@ -125,12 +128,12 @@ app.post('/register', csrfProtection, [ // [A01:2021 Broken Access Control]
   const { username, password, confirmPassword } = req.body;
 
   if (!username || !password || !confirmPassword) {
-    res.status(400).send('All fields are required');
+    res.status(400).render('register', { csrfToken: req.csrfToken(), errorMessage: 'All fields are required !' });
     return;
   }
 
   if (password !== confirmPassword) {
-    res.status(400).send('Passwords do not match');
+    res.status(400).render('register', { csrfToken: req.csrfToken(), errorMessage: 'Passwords do not match !' });
     return;
   }
 
@@ -138,7 +141,7 @@ app.post('/register', csrfProtection, [ // [A01:2021 Broken Access Control]
   bcrypt.hash(password, 10, (err, hash) => {
     if (err) {
       console.error(err.message);
-      res.status(500).send('Internal server error');
+      res.status(500).render('register', { csrfToken: req.csrfToken(), errorMessage: 'Internal Server Error !' });
       return;
     }
 
@@ -146,7 +149,7 @@ app.post('/register', csrfProtection, [ // [A01:2021 Broken Access Control]
     db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash], (err) => { // pass hash to database password column
       if (err) {
         console.error(err.message);
-        res.status(500).send('Internal server error');
+        res.status(500).render('register', { csrfToken: req.csrfToken(), errorMessage: 'Internal Server Error !' });
         return;
       }
 
@@ -159,7 +162,6 @@ app.post('/register', csrfProtection, [ // [A01:2021 Broken Access Control]
 //logout
 
 app.post('/logout', csrfProtection, (req, res) => { // [A01:2021 Broken Access Control]
-
   req.session.destroy((err) => {
     if (err) {
       console.error(err);
