@@ -36,7 +36,8 @@ app.get('/', (req, res) => {
 
 //get
 app.get('/login', (req, res) => {
-    res.render('login');
+    const errorMessage = null;
+    res.render('login', { errorMessage });
 });
 
 // post
@@ -44,24 +45,24 @@ app.post('/login', (req,res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      res.render('login', { error: 'All fields are required' });
+      res.status(400).render('login', { errorMessage: 'All fields are required!!' });
       return;
     }
 
     db.get(`SELECT id, username, password FROM users WHERE username = '${username}'`, (err, row) => {
       if (err) {
         console.error(err.message);
-        res.status(500).send('Internal server error')
+        res.status(500).render('login', { errorMessage: 'Internal Server Error!!' });
         return;
       }
 
       if (!row) {
-        res.render('login', {error: 'Invalid username or password'});
+        res.status(500).render('login', { errorMessage: 'Internal Server Error!!' });
         return;
       }
 
       if (password !== row.password) {
-        res.render('login', { error: 'Invalid username or password'});
+        res.status(500).render('login', { errorMessage: 'Internal Server Error!!' });
         return;
       }
 
@@ -74,7 +75,8 @@ app.post('/login', (req,res) => {
 //register
 //get
 app.get('/register', (req, res) => {
-    res.render('register');
+    const errorMessage = null;
+    res.render('register', { errorMessage });
 });
 
 //post
@@ -82,19 +84,19 @@ app.post('/register', (req, res) => {
     const { username, password, confirmPassword } = req.body;
     
     if (!username || !password || !confirmPassword) {
-      res.status(400).send('All fields are required');
+      res.status(400).render('register', { errorMessage: 'All fields are required !!' });
       return;
     }
   
     if (password !== confirmPassword) {
-      res.status(400).send('Passwords do not match');
+      res.status(400).render('register', { errorMessage: 'Passwords do not match !!' });
       return;
     }
   
     db.run(`INSERT INTO users (username, password) VALUES ('${username}', '${password}')`, (err) => {
         if (err) {
           console.error(err.message);
-          res.status(500).send('Internal server error');
+          res.status(500).render('register', { errorMessage: 'Internal Server Error !!' });
           return;
         }
 
